@@ -1,3 +1,2 @@
 websockets
 ffmpeg-python
-aiohttp

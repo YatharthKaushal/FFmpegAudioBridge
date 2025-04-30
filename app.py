@@ -5,20 +5,20 @@ import base64
 import uuid
 import ffmpeg
 import threading
+import time
 import os
-from aiohttp import web
 
-# Ports
-WS_PORT = 5000
-HTTP_PORT = int(os.environ.get("PORT", 8000))
+# Get port from environment variable (for fly.io)
+PORT = int(os.environ.get("PORT", 5000))
 
-# Streams
 STREAM_URLS = [
-    "https://s3.us-east-1.amazonaws.com/twilio-calls-recordings/recordings/ACab32b204986a87a022a07b5cf4c95e0f/REaf0c60c181e2f36b0be8a20c80056767",
-    "https://mediaserv33.live-streams.nl:8034/live"
+   # "http://mediaserv30.live-streams.nl:8086/live",
+   "https://s3.us-east-1.amazonaws.com/twilio-calls-recordings/recordings/ACab32b204986a87a022a07b5cf4c95e0f/REaf0c60c181e2f36b0be8a20c80056767",
+   "https://mediaserv33.live-streams.nl:8034/live"
 ]
 
 async def send_flags_to_frontend(ws, stream_uuid, flag_type, sequence_number):
+    """ Sends start, media, or stop flags to the frontend. """
     flag = {
         "event": flag_type.lower(),
         "sequenceNumber": str(sequence_number),
@@ -30,17 +30,24 @@ async def send_flags_to_frontend(ws, stream_uuid, flag_type, sequence_number):
     elif flag_type == "Stop Flag":
         flag["stop"] = {"streamSid": stream_uuid}
 
+    print(f"\n[FLAG] {flag_type} -> {json.dumps(flag, indent=2)}\n")  # ✅ Print in terminal
+
     try:
-        await ws.send(json.dumps(flag))
+        await ws.send(json.dumps(flag))  # ✅ Ensure this sends successfully
+        print(f"[✅ SENT] {flag_type} sent to frontend")  # Confirm flag is sent
     except websockets.exceptions.ConnectionClosed:
-        print("[ERROR] WebSocket closed while sending flag")
+        print("[ERROR] WebSocket connection closed before flag could be sent")
 
 def process_audio(ws, stream_url, stream_uuid, loop):
+    """ Runs FFmpeg in a separate thread and sends audio chunks via WebSocket. """
+    
     async def send_stop_flag():
+        """ Sends stop flag from within the asyncio event loop. """
         await send_flags_to_frontend(ws, stream_uuid, "Stop Flag", 999)
 
     def run_ffmpeg():
         try:
+            print(f"[INFO] Starting FFmpeg for {stream_url}")
             process = (
                 ffmpeg.input(stream_url)
                 .output('pipe:', format='wav', acodec='pcm_s16le', ac=1, ar=8000)
@@ -48,10 +55,12 @@ def process_audio(ws, stream_url, stream_uuid, loop):
             )
 
             chunk_counter = 0
+
             while True:
                 chunk = process.stdout.read(4096)
                 if not chunk:
-                    break
+                    print("[ERROR] No audio data received, stopping stream.")
+                    break  
 
                 encoded_chunk = base64.b64encode(chunk).decode('utf-8')
                 message = {
@@ -66,56 +75,67 @@ def process_audio(ws, stream_url, stream_uuid, loop):
                     "streamSid": stream_uuid
                 }
 
+                print(f"[DEBUG] Sending media chunk {chunk_counter + 1}")
+
+                # ✅ Send message using event loop
                 future = asyncio.run_coroutine_threadsafe(ws.send(json.dumps(message)), loop)
                 try:
-                    future.result()
-                except Exception:
-                    break
+                    future.result()  # Wait for it to send
+                except Exception as send_error:
+                    print(f"[ERROR] WebSocket send error: {send_error}")
+                    break  # Stop sending if WebSocket is closed
 
                 chunk_counter += 1
 
             process.wait()
+            print(f"[INFO] FFmpeg process completed for: {stream_url}")
+
+            if process.returncode != 0:
+                error_output = process.stderr.read().decode()
+                print(f"[ERROR] FFmpeg failed for {stream_url}: {error_output}")
+
+            # ✅ Send Stop Flag after streaming ends
             asyncio.run_coroutine_threadsafe(send_stop_flag(), loop)
+            print(f"\n[FLAG] Stop Flag sent for {stream_uuid}\n")
 
         except Exception as e:
-            print(f"[ERROR] FFmpeg processing failed: {e}")
+            print(f"[ERROR] Streaming {stream_url}: {e}")
 
-    threading.Thread(target=run_ffmpeg, daemon=True).start()
+    thread = threading.Thread(target=run_ffmpeg, daemon=True)
+    thread.start()
 
 async def handle_connection(ws):
+    """ Handles WebSocket connections and starts audio streaming. """
     try:
+        print("[INFO] Client connected")
         await ws.send(json.dumps({"event": "connected", "protocol": "LiveAudio", "version": "1.0.0"}))
+
         loop = asyncio.get_running_loop()
 
         for stream_url in STREAM_URLS:
             stream_uuid = str(uuid.uuid4())
+
+            # ✅ Send Start Flag before streaming starts
             await send_flags_to_frontend(ws, stream_uuid, "Start Flag", 1)
-            threading.Thread(target=process_audio, args=(ws, stream_url, stream_uuid, loop), daemon=True).start()
+
+            # ✅ Start FFmpeg processing
+            thread = threading.Thread(target=process_audio, args=(ws, stream_url, stream_uuid, loop), daemon=True)
+            thread.start()
 
         while True:
-            await asyncio.sleep(1)
+            await asyncio.sleep(1)  # Keep connection open
 
     except websockets.exceptions.ConnectionClosed:
         print("[INFO] Client disconnected")
+    finally:
+        print("[INFO] WebSocket connection closed")
 
-# Health check HTTP server
-async def health_check(request):
-    return web.Response(text="OK", status=200)
-
-async def start_servers():
-    # Start health check HTTP server
-    app = web.Application()
-    app.router.add_get('/', health_check)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", HTTP_PORT)
-    await site.start()
-    print(f"[INFO] HTTP health check running on port {HTTP_PORT}")
-
-    # Start WebSocket server
-    ws_server = await websockets.serve(handle_connection, "0.0.0.0", WS_PORT)
-    print(f"[INFO] WebSocket server running on port {WS_PORT}")
-    await ws_server.wait_closed()
+async def main():
+    print(f"Starting WebSocket server on port {PORT}")
+    
+    server = await websockets.serve(handle_connection, "0.0.0.0", PORT)
+    
+    await server.wait_closed()
 
 if __name__ == "__main__":
-    asyncio.run(start_servers())
+    asyncio.run(main())

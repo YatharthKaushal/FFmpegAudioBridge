@@ -1,17 +1,22 @@
-FROM python:3.10-slim
+FROM python:3.9-slim
 
-# Install system packages
-RUN apt update && apt install -y ffmpeg
+# Install FFmpeg
+RUN apt-get update && \
+    apt-get install -y ffmpeg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy your app
-COPY . /app
+# Copy requirements and install dependencies
+COPY requirement.txt .
+RUN pip install --no-cache-dir -r requirement.txt
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy application code
+COPY app.py .
 
-EXPOSE 5000
+# Expose the port that the application will run on
+EXPOSE 8080
 
+# Command to run the application
 CMD ["python", "app.py"]
-

@@ -1,0 +1,29 @@
+app = "audio-stream-server"
+primary_region = "iad"  # Change to your preferred region
+
+[build]
+
+[env]
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[services.ports]]
+  handlers = ["tls", "http"]
+  port = "443"
+
+[[services.ports]]
+  handlers = ["http"]
+  port = "80"
+
+# For WebSockets support
+[[services.tcp_checks]]
+  interval = "15s"
+  timeout = "2s"
+  grace_period = "1s"
