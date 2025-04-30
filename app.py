@@ -5,9 +5,14 @@ import base64
 import uuid
 import ffmpeg
 import threading
-import time
-from aiohttp import web  # Added for HTTP health check
+import os
+from aiohttp import web
 
+# Ports
+WS_PORT = 5000
+HTTP_PORT = int(os.environ.get("PORT", 8000))
+
+# Streams
 STREAM_URLS = [
     "https://s3.us-east-1.amazonaws.com/twilio-calls-recordings/recordings/ACab32b204986a87a022a07b5cf4c95e0f/REaf0c60c181e2f36b0be8a20c80056767",
     "https://mediaserv33.live-streams.nl:8034/live"
@@ -43,7 +48,6 @@ def process_audio(ws, stream_url, stream_uuid, loop):
             )
 
             chunk_counter = 0
-
             while True:
                 chunk = process.stdout.read(4096)
                 if not chunk:
@@ -94,21 +98,23 @@ async def handle_connection(ws):
     except websockets.exceptions.ConnectionClosed:
         print("[INFO] Client disconnected")
 
-# ✅ Health check endpoint
+# Health check HTTP server
 async def health_check(request):
     return web.Response(text="OK", status=200)
 
 async def start_servers():
-    # Start HTTP server on port 8000 for health checks
+    # Start health check HTTP server
     app = web.Application()
     app.router.add_get('/', health_check)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 8000)
+    site = web.TCPSite(runner, "0.0.0.0", HTTP_PORT)
     await site.start()
+    print(f"[INFO] HTTP health check running on port {HTTP_PORT}")
 
-    # Start WebSocket server on port 5000
-    ws_server = await websockets.serve(handle_connection, "0.0.0.0", 5000)
+    # Start WebSocket server
+    ws_server = await websockets.serve(handle_connection, "0.0.0.0", WS_PORT)
+    print(f"[INFO] WebSocket server running on port {WS_PORT}")
     await ws_server.wait_closed()
 
 if __name__ == "__main__":

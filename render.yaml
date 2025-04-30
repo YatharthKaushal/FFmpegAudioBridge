@@ -9,6 +9,6 @@ services:
     startCommand: python app.py
     envVars:
       - key: PORT
-        value: 5000
+        value: 8000  # This is only for HTTP health check server
     healthCheckPath: /
     healthCheckPort: 8000
