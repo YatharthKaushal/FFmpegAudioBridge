@@ -1,3 +1,14 @@
-websockets
-ffmpeg-python
-aiohttp
+flask
+flask_socketio
+requests
+assemblyai
+boto3
+azure-cognitiveservices-speech
+deepgram-sdk
+git+https://github.com/speechmatics/speechmatics-python.git
+httpx
+unidecode
+phonetics
+rapidfuzz
+scikit-learn
+eventlet

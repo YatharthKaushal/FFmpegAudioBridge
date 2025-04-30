@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: flask-audio-transcriber
+    runtime: python
+    buildCommand: ""
+    startCommand: python app.py
+    plan: starter  # must be a paid plan to use WebSockets
+    envVars:
+      - key: PORT
+        value: 5000
