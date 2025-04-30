@@ -5,11 +5,7 @@ import base64
 import uuid
 import ffmpeg
 import threading
-import time
 import os
-
-# Get port from environment variable (for fly.io)
-PORT = int(os.environ.get("PORT", 5000))
 
 STREAM_URLS = [
    # "http://mediaserv30.live-streams.nl:8086/live",
@@ -131,9 +127,22 @@ async def handle_connection(ws):
         print("[INFO] WebSocket connection closed")
 
 async def main():
-    print(f"Starting WebSocket server on port {PORT}")
+    # Get port from environment variable (for Render deployment)
+    port = int(os.environ.get("PORT", 5000))
     
-    server = await websockets.serve(handle_connection, "0.0.0.0", PORT)
+    print(f"Starting WebSocket server on port {port}")
+    
+    server = await websockets.serve(
+        handle_connection, 
+        "0.0.0.0",  # Listen on all interfaces 
+        port,
+        # Production settings for better performance and security
+        ping_interval=30,
+        ping_timeout=10,
+        max_size=10 * 1024 * 1024  # 10MB max message size
+    )
+    
+    print(f"Server started on port {port}")
     
     await server.wait_closed()
 
