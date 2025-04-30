@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcription Comparison</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <style>
+        /* General Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            line-height: 1.6;
+            background-color: #f9f9f9;
+            color: #333;
+            padding: 20px;
+        }
+
+        h1, h2 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        h1 {
+            font-size: 2rem;
+            text-align: center;
+            border-bottom: 2px solid #1a73e8;
+            display: inline-block;
+            padding-bottom: 5px;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+        }
+
+        button, input[type="file"], #uploadButton {
+            padding: 10px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #1a73e8;
+            color: white;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        button:hover, #uploadButton:hover {
+            background-color: #0059b3;
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #uploadButton {
+            margin-top: 10px;
+            display: block;
+        }
+
+        #audioList {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #audioList button {
+            margin: 5px;
+            background-color: #e8f0fe;
+            color: #1a73e8;
+            border: 1px solid #1a73e8;
+        }
+
+        #audioList button:hover {
+            background-color: #c9e0fe;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        th {
+            background-color: #1a73e8;
+            color: white;
+            text-align: left;
+            padding: 12px;
+        }
+
+        td {
+            padding: 10px;
+            text-align: left;
+        }
+
+        .loading {
+            font-style: italic;
+            color: #888;
+        }
+
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .footer a {
+            color: #1a73e8;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        .transcribe-all-btn {
+            display: block;
+            margin: 10px auto;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            table {
+                font-size: 0.9rem;
+            }
+
+            button, input[type="file"], #uploadButton {
+                font-size: 12px;
+                padding: 8px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Transcription Comparison Tool</h1>
+
+    <h2>Upload Audio Files</h2>
+    <form id="uploadForm">
+        <input type="file" id="audioFiles" multiple accept="audio/*" />
+        <button type="submit" id="uploadButton">Upload Files</button>
+    </form>
+
+    <h2>Audio Files</h2>
+    <div id="audioList">
+        <p>Loading audio files...</p>
+    </div>
+    <button class="transcribe-all-btn" onclick="transcribeAll()">Transcribe All Files</button>
+
+    <h2>Transcriptions</h2>
+    <table id="transcriptionTable">
+        <thead>
+            <tr>
+                <th>Audio File</th>
+                <th>Deepgram</th>
+                <th>AssemblyAI</th>
+                <th>AWS</th>
+                <th>Azure</th>
+                <th>Speechmatics</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan="6" style="text-align: center;">No transcriptions yet.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script>
+        const socket = io.connect('http://127.0.0.1:5000');
+        const audioListDiv = document.getElementById('audioList');
+        const transcriptionTable = document.getElementById('transcriptionTable').getElementsByTagName('tbody')[0];
+
+        // Fetch the list of available audio files
+        function loadAudioFiles() {
+            fetch('/list_audio_files')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        audioListDiv.innerHTML = `<p>Error: ${data.error}</p>`;
+                        return;
+                    }
+
+                    const audioFiles = data.files;
+                    if (audioFiles.length === 0) {
+                        audioListDiv.innerHTML = '<p>No audio files available.</p>';
+                        return;
+                    }
+
+                    audioListDiv.innerHTML = '';
+                    audioFiles.forEach(file => {
+                        const button = document.createElement('button');
+                        button.textContent = file;
+                        button.onclick = () => playAndTranscribeAudio(file);
+                        audioListDiv.appendChild(button);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching audio files:', error);
+                    audioListDiv.innerHTML = '<p>Error loading audio files.</p>';
+                });
+        }
+
+        document.getElementById('uploadForm').addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const fileInput = document.getElementById('audioFiles');
+            const files = fileInput.files;
+            if (files.length === 0) {
+                alert('Please select audio files to upload.');
+                return;
+            }
+
+            Array.from(files).forEach(file => {
+                const formData = new FormData();
+                formData.append('audio', file);
+
+                fetch('/upload_audio', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert(`Error: ${data.error}`);
+                        } else {
+                            console.log(`File uploaded: ${data.filename}`);
+                            loadAudioFiles();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error uploading file:', error);
+                        alert('Error uploading file.');
+                    });
+            });
+
+            fileInput.value = '';
+        });
+
+        function playAndTranscribeAudio(filename) {
+            const audio = new Audio(`/audio/${filename}`);
+            audio.play();
+
+            const existingRow = document.querySelector(`tr[data-filename="${filename}"]`);
+            if (!existingRow) {
+                const newRow = document.createElement('tr');
+                newRow.setAttribute('data-filename', filename);
+                newRow.innerHTML = `
+                    <td>${filename}</td>
+                    <td class="deepgram loading">Loading...</td>
+                    <td class="assemblyai loading">Loading...</td>
+                    <td class="aws loading">Loading...</td>
+                    <td class="azure loading">Loading...</td>
+                    <td class="speechmatics loading">Loading...</td>
+                `;
+                transcriptionTable.appendChild(newRow);
+            }
+
+            socket.emit("play_audio", filename);
+        }
+
+        function transcribeAll() {
+            const audioButtons = audioListDiv.querySelectorAll('button');
+            audioButtons.forEach(button => playAndTranscribeAudio(button.textContent));
+        }
+
+        socket.on("model_result", (data) => {
+            const row = document.querySelector(`tr[data-filename="${data.file_name}"]`);
+            if (!row) return;
+
+            const modelCell = row.querySelector(`.${data.model.toLowerCase()}`);
+            if (modelCell) {
+                modelCell.textContent = data.result;
+                modelCell.classList.remove("loading");
+            }
+        });
+
+        loadAudioFiles();
+    </script>
+</body>
+</html>

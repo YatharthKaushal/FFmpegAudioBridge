@@ -3,64 +3,423 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocket Audio Flags</title>
+    <title>Transcription Comparison</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; }
-        .stream-container { border: 2px solid #ddd; padding: 10px; margin: 10px; border-radius: 5px; }
-        .flag { margin-left: 15px; font-weight: bold; }
-        pre { background: #f4f4f4; padding: 10px; border-radius: 5px; white-space: pre-wrap; }
+        /* General Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            line-height: 1.6;
+            background-color: #f9f9f9;
+            color: #333;
+            padding: 20px;
+        }
+
+        h1, h2 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        h1 {
+            font-size: 2rem;
+            text-align: center;
+            border-bottom: 2px solid #1a73e8;
+            display: inline-block;
+            padding-bottom: 5px;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+        }
+
+        button, input[type="file"], #uploadButton {
+            padding: 10px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #1a73e8;
+            color: white;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        button:hover, #uploadButton:hover {
+            background-color: #0059b3;
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #uploadButton {
+            margin-top: 10px;
+            display: block;
+        }
+
+        .audio-container {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .reference-info {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .comparison-info {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #333;
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .action-buttons {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        th {
+            background-color: #1a73e8;
+            color: white;
+            text-align: left;
+            padding: 12px;
+        }
+
+        td {
+            padding: 10px;
+            text-align: left;
+        }
+
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .footer a {
+            color: #1a73e8;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top-color: #1a73e8;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            table {
+                font-size: 0.9rem;
+            }
+
+            button, input[type="file"], #uploadButton {
+                font-size: 12px;
+                padding: 8px 12px;
+            }
+        }
     </style>
 </head>
 <body>
+    <h1>Transcription Comparison Tool</h1>
 
-    <h1>Audio Stream Flags</h1>
-    <div id="streams-container">
-        <h2>Flags for Each Stream</h2>
+    <h2>Upload Audio Files</h2>
+    <form id="uploadForm">
+        <input type="file" id="audioFiles" multiple accept="audio/*" />
+        <button type="submit" id="uploadButton">Upload Files</button>
+    </form>
+
+    <h2>Audio Files</h2>
+    <div id="audioContainer"></div>
+
+    <div class="action-buttons">
+        <button id="transcribeAllButton" onclick="transcribeAll()">Transcribe All</button>
+        <button id="readCsvButton" onclick="readCsvAndDownload()">Read CSV and Download Audio</button>
+    </div>
+
+    <h2>Summary of Total Scores</h2>
+    <div id="summaryContainer">
+        <table id="summaryTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Total Exact Matches</th>
+                    <th>Total Phonetic Matches</th>
+                    <th>Average Fuzzy Score</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
 
     <script>
-        const socket = new WebSocket("ws://localhost:5000");
+        const socket = io.connect('http://127.0.0.1:5000');
+        const audioContainer = document.getElementById('audioContainer');
+        const summaryContainer = document.getElementById('summaryContainer');
+        let audioReferences = {};
+        let modelScores = {};
 
-        socket.onopen = function () {
-            console.log("✅ Connected to WebSocket server.");
-        };
+        function loadAudioFiles() {
+            fetch('/list_audio_files')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        audioContainer.innerHTML = `<p>Error: ${data.error}</p>`;
+                        return;
+                    }
 
-        socket.onmessage = function (event) {
-            try {
-                let message = JSON.parse(event.data);
-                console.log("📥 Received WebSocket message:", message);
+                    const audioFiles = data.files;
+                    if (audioFiles.length === 0) {
+                        audioContainer.innerHTML = '<p>No audio files available.</p>';
+                        return;
+                    }
 
-                const streamSid = message.streamSid || "unknown_stream";
+                    audioContainer.innerHTML = '';
+                    audioFiles.forEach(file => {
+                        const audioDiv = document.createElement('div');
+                        audioDiv.classList.add('audio-container');
 
-                // Ensure a section exists for this stream
-                let streamDiv = document.getElementById(`stream-${streamSid}`);
-                if (!streamDiv) {
-                    streamDiv = document.createElement("div");
-                    streamDiv.id = `stream-${streamSid}`;
-                    streamDiv.className = "stream-container";
-                    streamDiv.innerHTML = `<h3>🎵 Stream ID: ${streamSid}</h3>`;
-                    document.getElementById("streams-container").appendChild(streamDiv);
+                        const title = document.createElement('h3');
+                        title.textContent = `Audio File: ${file}`;
+                        title.style.cursor = 'pointer';
+                        title.addEventListener('click', () => {
+                            if (!audioDiv.querySelector('table')) {
+                                createTranscriptionTable(audioDiv, file);
+                                playAndTranscribeAudio(file);
+                            }
+                        });
+
+                        audioDiv.appendChild(title);
+                        audioContainer.appendChild(audioDiv);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching audio files:', error);
+                    audioContainer.innerHTML = '<p>Error loading audio files.</p>';
+                });
+        }
+
+        function createTranscriptionTable(container, file) {
+            const table = document.createElement('table');
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Audio File</th>
+                        <th>Model</th>
+                        <th>Transcription</th>
+                        <th>Exact Match</th>
+                        <th>Phonetic Match</th>
+                        <th>Fuzzy Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            `;
+
+            const referenceDiv = document.createElement('div');
+            referenceDiv.className = 'reference-info';
+            referenceDiv.innerHTML = `
+                <p><strong>Audio Reference:</strong> <span id="audio-ref-${file}">Loading...</span></p>
+                <p><strong>CSV Reference:</strong> <span id="csv-ref-${file}">Loading...</span></p>
+            `;
+
+            container.appendChild(table);
+            container.appendChild(referenceDiv);
+        }
+
+        function updateSummaryTable() {
+            const summaryTable = document.getElementById('summaryTable');
+            const tbody = summaryTable.querySelector('tbody');
+            tbody.innerHTML = ''; // Clear previous summary data
+
+            Object.keys(modelScores).forEach(model => {
+                const { exact, phonetic, fuzzy, count } = modelScores[model];
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${model}</td>
+                    <td>${exact}</td>
+                    <td>${phonetic}</td>
+                    <td>${(fuzzy / count).toFixed(2)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            summaryTable.style.display = 'block'; // Show the summary table
+        }
+
+        function updateTableWithScores(container, model, transcription, scores) {
+            const tbody = container.querySelector('table tbody');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${container.querySelector('h3').textContent.replace('Audio File: ', '')}</td>
+                <td>${model}</td>
+                <td>${transcription}</td>
+                <td>${scores ? scores.exact_match : 'N/A'}</td>
+                <td>${scores ? scores.phonetic_match : 'N/A'}</td>
+                <td>${scores ? scores.fuzzy_score : 'N/A'}</td>
+            `;
+
+            tbody.appendChild(row);
+
+            if (scores) {
+                if (!modelScores[model]) {
+                    modelScores[model] = { exact: 0, phonetic: 0, fuzzy: 0, count: 0 };
                 }
+                modelScores[model].exact += scores.exact_match;
+                modelScores[model].phonetic += scores.phonetic_match;
+                modelScores[model].fuzzy += scores.fuzzy_score;
+                modelScores[model].count += 1;
 
-                // Print the flag exactly as received
-                let flagElement = document.createElement("pre");
-                flagElement.className = "flag";
-                flagElement.textContent = JSON.stringify(message, null, 2); // Pretty-print JSON
-                streamDiv.appendChild(flagElement);
-
-            } catch (error) {
-                console.error("❌ Error parsing WebSocket message:", error);
+                updateSummaryTable();
             }
-        };
+        }
 
-        socket.onerror = function (error) {
-            console.error("❌ WebSocket Error:", error);
-        };
+        function playAndTranscribeAudio(filename) {
+            socket.emit("play_audio", filename);
+        }
 
-        socket.onclose = function () {
-            console.warn("⚠️ WebSocket connection closed.");
-        };
+        function transcribeAll() {
+            const audioDivs = document.querySelectorAll('.audio-container');
+            audioDivs.forEach(div => {
+                const title = div.querySelector('h3');
+                const filename = title.textContent.replace('Audio File: ', '');
+                if (!div.querySelector('table')) {
+                    createTranscriptionTable(div, filename);
+                }
+                playAndTranscribeAudio(filename);
+            });
+        }
+
+        function readCsvAndDownload() {
+            const readCsvButton = document.getElementById('readCsvButton');
+            readCsvButton.disabled = true;
+            readCsvButton.innerHTML = 'Processing... <span class="spinner"></span>';
+
+            fetch('/read_csv', {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(`Error: ${data.error}`);
+                    } else {
+                        alert(`Downloaded files: ${data.downloaded_files.join(', ')}`);
+                        audioReferences = data.audio_references || {};
+                        loadAudioFiles();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error reading CSV:', error);
+                    alert('Error reading CSV.');
+                })
+                .finally(() => {
+                    readCsvButton.disabled = false;
+                    readCsvButton.innerHTML = 'Read CSV and Download Audio';
+                });
+        }
+
+        socket.on("model_result", (data) => {
+            const rows = document.querySelectorAll(`.audio-container`);
+            rows.forEach(container => {
+                if (container.querySelector('h3').textContent.includes(data.file_name)) {
+                    updateTableWithScores(container, data.model, data.result, data.scores);
+
+                    const audioRef = document.getElementById(`audio-ref-${data.file_name}`);
+                    const csvRef = document.getElementById(`csv-ref-${data.file_name}`);
+                    if (audioRef) {
+                        audioRef.textContent = data.file_name;
+                    }
+                    if (csvRef) {
+                        csvRef.textContent = audioReferences[data.file_name] || "No CSV reference available";
+                    }
+                }
+            });
+        });
+
+        document.getElementById('uploadForm').addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const fileInput = document.getElementById('audioFiles');
+            const files = fileInput.files;
+            if (files.length === 0) {
+                alert('Please select audio files to upload.');
+                return;
+            }
+
+            Array.from(files).forEach(file => {
+                const formData = new FormData();
+                formData.append('audio', file);
+
+                fetch('/upload_audio', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert(`Error: ${data.error}`);
+                        } else {
+                            console.log(`File uploaded: ${data.filename}`);
+                            loadAudioFiles();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error uploading file:', error);
+                        alert('Error uploading file.');
+                    });
+            });
+
+            fileInput.value = '';
+        });
+
+        loadAudioFiles();
     </script>
-
 </body>
 </html>
