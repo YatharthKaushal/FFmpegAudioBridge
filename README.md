@@ -32,11 +32,13 @@ FFmpegAudioBridge is a Python-based WebSocket server designed to stream audio fr
    git clone https://github.com/your-username/FFmpegAudioBridge.git
    cd FFmpegAudioBridge
    ```
+
 2. Install dependencies:
 
    ```bash
    pip install -r requirements.txt
    ```
+
 3. Ensure FFmpeg is installed:
    - On Ubuntu: `sudo apt-get install ffmpeg`
    - On macOS: `brew install ffmpeg`
@@ -49,11 +51,12 @@ FFmpegAudioBridge is a Python-based WebSocket server designed to stream audio fr
    ```bash
    python main.py
    ```
-3. The WebSocket server will start at `ws://localhost:5000`.
+
+3. The WebSocket server will start at `ws://https://ffmpegaudiobridge.onrender.com:5000`.
 
 ### Connecting a Client
 
-- Use a WebSocket client (e.g., a JavaScript-based frontend) to connect to `ws://localhost:5000`.
+- Use a WebSocket client (e.g., a JavaScript-based frontend) to connect to `ws://https://ffmpegaudiobridge.onrender.com:5000`.
 - The server sends a `connected` event upon connection, followed by `start`, `media`, and `stop` events for each stream.
 
 ## Deployment
@@ -77,6 +80,7 @@ FFmpegAudioBridge can be deployed on platforms supporting Python and FFmpeg, suc
    EXPOSE 5000
    CMD ["python", "main.py"]
    ```
+
 2. Push to a GitHub repository and deploy via Render's Web Service.
 
 ## License
