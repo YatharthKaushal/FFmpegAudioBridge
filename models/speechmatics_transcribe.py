@@ -2,6 +2,7 @@ import time
 from speechmatics.models import ConnectionSettings, BatchTranscriptionConfig
 from speechmatics.batch_client import BatchClient
 from httpx import HTTPStatusError
+import traceback
 
 # Speechmatics API Key and Configuration
 API_KEY = "PXx82LPEUVKzrv3N1PcQygZx9N0oS8IC"  # Replace with your actual API key
@@ -58,5 +59,9 @@ def transcribe_with_speechmatics(file_path):
         else:
             return f"Error: HTTP {e.response.status_code} - {e.response.text}"
 
+    # except Exception as e:
+    #     return f"Error with Speechmatics: {str(e)}"
+    
+
     except Exception as e:
-        return f"Error with Speechmatics: {str(e)}"
+        return f"Error with Speechmatics: {str(e)}\nTraceback:\n{traceback.format_exc()}"
