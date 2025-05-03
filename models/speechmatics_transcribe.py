@@ -25,9 +25,12 @@ def transcribe_with_speechmatics(file_path):
         )
 
         with BatchClient(connection_settings) as client:
-            abs_path = os.path.abspath(file_path)  # ✅ Ensure it's an absolute path
+            # Use the absolute file path
+            abs_path = os.path.abspath(file_path)
+            print(f"Using absolute path: {abs_path}")
+            
             job_id = client.submit_job(
-                audio=abs_path,  # ✅ Correct: absolute path string
+                audio=abs_path,  # Use the absolute path string
                 transcription_config=transcription_config
             )
             print(f"Job {job_id} submitted successfully, waiting for transcript...")
@@ -46,7 +49,6 @@ def transcribe_with_speechmatics(file_path):
             return f"Error: HTTP {e.response.status_code} – {e.response.text}"
     except Exception as e:
         return f"Error with Speechmatics: {str(e)}\nTraceback:\n{traceback.format_exc()}"
-
 
 # import time
 # from speechmatics.models import ConnectionSettings, BatchTranscriptionConfig
