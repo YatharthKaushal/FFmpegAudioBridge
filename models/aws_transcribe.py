@@ -12,16 +12,30 @@ AWS_ACCESS_KEY = "AKIARHJJNDZ5M5J5UELV"  # Replace with your access key
 AWS_SECRET_KEY = "4DGDTum2kQoP798vUYn1WvbbfZpIvXuYTj1BE3kF"  # Replace with your secret key
 S3_BUCKET_NAME = "voice-owl-transcribe-audio-bucket"  # Replace with your updated bucket name
 
+# def upload_to_s3(file_path):
+#     """
+#     Upload a file to S3 and return the S3 URI.
+
+#     Args:
+#         file_path (str): Path to the local file.
+
+#     Returns:
+#         str: S3 URI of the uploaded file.
+#     """
+#     try:
+#         s3_client = boto3.client(
+#             "s3",
+#             region_name=AWS_REGION,
+#             aws_access_key_id=AWS_ACCESS_KEY,
+#             aws_secret_access_key=AWS_SECRET_KEY,
+#         )
+#         s3_key = os.path.basename(file_path)
+#         s3_client.upload_file(file_path, S3_BUCKET_NAME, s3_key)
+#         return f"s3://{S3_BUCKET_NAME}/{s3_key}"
+#     except Exception as e:
+#         raise RuntimeError(f"Error uploading to S3: {str(e)}")
+
 def upload_to_s3(file_path):
-    """
-    Upload a file to S3 and return the S3 URI.
-
-    Args:
-        file_path (str): Path to the local file.
-
-    Returns:
-        str: S3 URI of the uploaded file.
-    """
     try:
         s3_client = boto3.client(
             "s3",
@@ -30,10 +44,16 @@ def upload_to_s3(file_path):
             aws_secret_access_key=AWS_SECRET_KEY,
         )
         s3_key = os.path.basename(file_path)
-        s3_client.upload_file(file_path, S3_BUCKET_NAME, s3_key)
+        s3_client.upload_file(
+            file_path,
+            S3_BUCKET_NAME,
+            s3_key,
+            ExtraArgs={'ACL': 'public-read'}  # 👈 Add this line
+        )
         return f"s3://{S3_BUCKET_NAME}/{s3_key}"
     except Exception as e:
         raise RuntimeError(f"Error uploading to S3: {str(e)}")
+
 
 
 def transcribe_aws(file_path, language_code="fr-FR"):
