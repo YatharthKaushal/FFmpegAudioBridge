@@ -106,6 +106,8 @@ def read_csv_and_download():
 def handle_audio_playback(filename):
     global audio_references
     file_path = os.path.join(AUDIO_FOLDER, filename)
+    print(f"Resolved file path: {file_path}")
+
     try:
         reference_text = audio_references.get(filename, "Default Reference Text")
         emit("transcription_result", {"file_name": filename})
