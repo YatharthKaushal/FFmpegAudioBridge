@@ -1,8 +1,8 @@
 import requests
 import json
 
-SPEECHMATICS_API_KEY = "zie22PmK7erzX8ttPspOZk5SZDgLYFrZ"
-SPEECHMATICS_API_URL = "https://asr.api.speechmatics.com/v2/jobs"
+SPEECHMATICS_API_KEY = "ZYd6s7o9pBJV58Scj7b8Oi4TmHrixLud" # "zie22PmK7erzX8ttPspOZk5SZDgLYFrZ"
+SPEECHMATICS_API_URL = "https://asr.api.speechmatics.com/v2/jobs/"
 
 def upload_audio_to_speechmatics(file_path):
     """

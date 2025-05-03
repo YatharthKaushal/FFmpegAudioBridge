@@ -4,7 +4,7 @@ requests
 assemblyai
 boto3
 azure-cognitiveservices-speech
-deepgram-sdk
+deepgram-sdk==2.12.0
 git+https://github.com/speechmatics/speechmatics-python.git
 httpx
 unidecode
