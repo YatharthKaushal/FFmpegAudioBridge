@@ -107,6 +107,13 @@ def handle_audio_playback(filename):
     global audio_references
     file_path = os.path.join(AUDIO_FOLDER, filename)
     print(f"Resolved file path: {file_path}")
+    # ✅ Add .wav if missing
+    if not file_path.endswith(".wav"):
+        new_path = file_path + ".wav"
+        os.rename(file_path, new_path)
+        file_path = new_path
+
+    print(f"Resolved file path: {file_path}", flush=True)
 
     try:
         reference_text = audio_references.get(filename, "Default Reference Text")
