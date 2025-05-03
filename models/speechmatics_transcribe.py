@@ -39,17 +39,30 @@ def transcribe_with_speechmatics(file_path):
         )
 
         # Use BatchClient to submit and retrieve transcription
+        # with BatchClient(connection_settings) as client:
+        #     # Submit job
+        #     job_id = client.submit_job(
+        #         audio=file_path,
+        #         transcription_config=transcription_config
+        #     )
+        #     print(f"Job {job_id} submitted successfully, waiting for transcript...")
+
+        #     # Wait for completion and retrieve transcript
+        #     transcript = client.wait_for_completion(job_id, transcription_format="txt")
+        #     return transcript
         with BatchClient(connection_settings) as client:
-            # Submit job
-            job_id = client.submit_job(
-                audio=file_path,
-                transcription_config=transcription_config
-            )
-            print(f"Job {job_id} submitted successfully, waiting for transcript...")
+    # Open the audio file as a binary stream
+            with open(file_path, "rb") as audio_file:
+                job_id = client.submit_job(
+                    audio=audio_file,
+                    transcription_config=transcription_config
+                )
+                print(f"Job {job_id} submitted successfully, waiting for transcript...")
 
             # Wait for completion and retrieve transcript
             transcript = client.wait_for_completion(job_id, transcription_format="txt")
             return transcript
+
 
     except HTTPStatusError as e:
         # Handle specific HTTP errors
