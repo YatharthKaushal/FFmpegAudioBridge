@@ -11,8 +11,8 @@ API_URL = "https://asr.api.speechmatics.com/v2"
 def transcribe_with_speechmatics(file_path):
     if not os.path.exists(file_path):
         return f"Error: File '{file_path}' not found."
-    print(f"[Speechmatics] File path received: {file_path}")
-    print(f"[Speechmatics] File format detected: {os.path.splitext(file_path)[1]}")
+    print(f"[Speechmatics] File path received: {file_path}", flush=True)
+    print(f"[Speechmatics] File format detected: {os.path.splitext(file_path)[1]}", flush=True)
     try:
         connection_settings = ConnectionSettings(
             url=API_URL,
@@ -29,7 +29,7 @@ def transcribe_with_speechmatics(file_path):
                 audio=file_path,
                 transcription_config=transcription_config
             )
-            print(f"Job {job_id} submitted successfully, waiting for transcript...")
+            print(f"Job {job_id} submitted successfully, waiting for transcript...", flush=True)
 
             transcript = client.wait_for_completion(job_id, transcription_format="txt")
             return transcript
