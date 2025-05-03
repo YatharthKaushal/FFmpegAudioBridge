@@ -44,13 +44,18 @@ def upload_to_s3(file_path):
             aws_secret_access_key=AWS_SECRET_KEY,
         )
         s3_key = os.path.basename(file_path)
-        s3_client.upload_file(
-            file_path,
-            S3_BUCKET_NAME,
-            s3_key,
-            ExtraArgs={'ACL': 'public-read'}  # 👈 Add this line
+
+        # Upload the file
+        s3_client.upload_file(file_path, S3_BUCKET_NAME, s3_key)
+
+        # Generate pre-signed URL (valid for 1 hour)
+        presigned_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': S3_BUCKET_NAME, 'Key': s3_key},
+            ExpiresIn=3600
         )
-        return f"s3://{S3_BUCKET_NAME}/{s3_key}"
+
+        return presigned_url
     except Exception as e:
         raise RuntimeError(f"Error uploading to S3: {str(e)}")
 
@@ -71,6 +76,12 @@ def transcribe_aws(file_path, language_code="fr-FR"):
         # Upload the file to S3
         s3_uri = upload_to_s3(file_path)
 
+        transcribe_client.start_transcription_job(
+            TranscriptionJobName=job_name,
+            Media={"MediaFileUri": s3_uri},
+            MediaFormat="wav",
+            LanguageCode=language_code,
+        )
         # Initialize AWS Transcribe client
         transcribe_client = boto3.client(
             "transcribe",
@@ -78,6 +89,7 @@ def transcribe_aws(file_path, language_code="fr-FR"):
             aws_access_key_id=AWS_ACCESS_KEY,
             aws_secret_access_key=AWS_SECRET_KEY,
         )
+        # Start transcription job using presigned URL
 
         # Generate a unique transcription job name using date, time, and a UUID
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
