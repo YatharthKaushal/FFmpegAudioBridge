@@ -3,9 +3,10 @@ from speechmatics.models import ConnectionSettings, BatchTranscriptionConfig
 from speechmatics.batch_client import BatchClient
 from httpx import HTTPStatusError
 import traceback
+import os
 
 # Speechmatics API Key and Configuration
-API_KEY = "PXx82LPEUVKzrv3N1PcQygZx9N0oS8IC"  # Replace with your actual API key
+API_KEY = "ZYd6s7o9pBJV58Scj7b8Oi4TmHrixLud" # "PXx82LPEUVKzrv3N1PcQygZx9N0oS8IC"
 LANGUAGE = "fr"  # Set language to French
 
 # Define the Speechmatics API URL
@@ -21,6 +22,8 @@ def transcribe_with_speechmatics(file_path):
     Returns:
         str: Transcribed text or an error message.
     """
+    if not os.path.exists(file_path):
+        return f"Error: File '{file_path}' not found."
     try:
         # Initialize connection settings with API key and URL
         connection_settings = ConnectionSettings(
