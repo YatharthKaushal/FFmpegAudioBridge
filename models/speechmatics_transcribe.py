@@ -59,10 +59,12 @@ def transcribe_with_speechmatics(file_path):
         elif e.response.status_code == 403:
             return "Error: Forbidden - Your API Key does not have the correct permissions."
         else:
-            print(f"Error: HTTP {str(e)}")
+            print(f"[speechmatics] Error: HTTP", flush=True)
+            print(f"Error: HTTP {e.response.status_code} - {e.response.text}", flush=True)
             return f"Error: HTTP {e.response.status_code} - {e.response.text}"
 
     except Exception as e:
+        print(f"[speechmatics] Error with Speechmatics: {e}", flush=True)
         return f"Error with Speechmatics: {str(e)}"
 
 
