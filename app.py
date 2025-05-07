@@ -113,7 +113,7 @@ def handle_audio_playback(filename):
         os.rename(file_path, new_path)
         file_path = new_path
 
-    print(f"Resolved file path: {file_path}", flush=True)
+    # print(f"Resolved file path: {file_path}", flush=True)
 
     try:
         reference_text = audio_references.get(filename, "Default Reference Text")

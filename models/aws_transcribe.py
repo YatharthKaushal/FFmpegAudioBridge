@@ -54,11 +54,11 @@ def transcribe_aws(file_path, language_code="fr-FR"):
         unique_id = uuid.uuid4().hex
         job_name = f"transcription-job-{timestamp}-{unique_id}"
 
-        print("Starting Transcription Job with:")
-        print("Media URL:", media_url, flush=True)
-        print("Format: wav", flush=True)
-        print("Language:", language_code, flush=True)
-        print("Job Name:", job_name, flush=True)
+        # print("Starting Transcription Job with:")
+        # print("Media URL:", media_url, flush=True)
+        # print("Format: wav", flush=True)
+        # print("Language:", language_code, flush=True)
+        # print("Job Name:", job_name, flush=True)
 
 
         # Start transcription job

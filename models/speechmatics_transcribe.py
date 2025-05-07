@@ -20,6 +20,7 @@ def transcribe_with_speechmatics(file_path):
     Returns:
         str: Transcribed text or an error message.
     """
+    print(f"[Speechmatics] File path received: {file_path}", flush=True)
     try:
         # Initialize connection settings with API key and URL
         connection_settings = ConnectionSettings(
@@ -53,10 +54,12 @@ def transcribe_with_speechmatics(file_path):
         if e.response.status_code == 401:
             return "Error: Invalid API Key. Please check your API key."
         elif e.response.status_code == 400:
+            print(e.response.json()['detail'], flush=True)
             return f"Error: {e.response.json().get('detail', 'Bad Request')}"
         elif e.response.status_code == 403:
             return "Error: Forbidden - Your API Key does not have the correct permissions."
         else:
+            print(f"Error: HTTP {str(e)}")
             return f"Error: HTTP {e.response.status_code} - {e.response.text}"
 
     except Exception as e:
