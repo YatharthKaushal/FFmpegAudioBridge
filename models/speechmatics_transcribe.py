@@ -41,10 +41,11 @@ def transcribe_with_speechmatics(file_path):
                 audio=file_path,
                 transcription_config=transcription_config
             )
-            print(f"Job {job_id} submitted successfully, waiting for transcript...")
+            print(f"Job {job_id} submitted successfully, waiting for transcript...", flush=True)
 
             # Wait for completion and retrieve transcript
             transcript = client.wait_for_completion(job_id, transcription_format="txt")
+            print(f"transcript...\n{transcript}", flush=True)
             return transcript
 
     except HTTPStatusError as e:
